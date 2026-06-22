@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Visibility Delivery Monitor</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212b; --line: #272c38;
+    --ink: #e8eaf0; --muted: #9aa3b2; --faint: #69707e;
+    --red: #ef4444; --amber: #f59e0b; --green: #22c55e; --star: #a855f7;
+    --accent: #6ea8fe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 80px; }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 16px;
+  }
+  header.top h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .controls { display: flex; align-items: center; gap: 12px; }
+  button#resync {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  button#resync:hover { border-color: var(--accent); }
+  button#resync:disabled { opacity: .5; cursor: default; }
+
+  .banner { border-radius: 8px; padding: 10px 14px; margin: 16px 0 0; font-size: 13px; }
+  .banner.warn { background: #2a210f; border: 1px solid #6b4e12; color: #f4d58b; }
+  .banner.stale { background: #2a1414; border: 1px solid #6b2424; color: #f4a6a6; }
+  .hidden { display: none; }
+
+  .scoreboard { display: flex; gap: 12px; flex-wrap: wrap; margin: 22px 0 8px; }
+  .score {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 18px; min-width: 96px; flex: 1;
+  }
+  .score .n { font-size: 26px; font-weight: 650; }
+  .score .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .score.red .n { color: var(--red); } .score.amber .n { color: var(--amber); }
+  .score.green .n { color: var(--green); } .score.star .n { color: var(--star); }
+
+  h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: .8px; color: var(--faint);
+    margin: 34px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+
+  .moved { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; }
+  .moved ul { margin: 0; padding: 8px 12px 8px 28px; }
+  .moved li { margin: 4px 0; }
+  .moved .empty { color: var(--muted); padding: 10px 14px; }
+
+  .cards { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .card.red { border-left: 4px solid var(--red); }
+  .card.amber { border-left: 4px solid var(--amber); }
+  .card.star { border-left: 4px solid var(--star); }
+  .card h3 { margin: 0 0 2px; font-size: 17px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pill { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 9px; border-radius: 999px; }
+  .pill.red { background: #3a1414; color: #ffb4b4; } .pill.amber { background: #3a2c0f; color: #ffd98a; }
+  .pill.star { background: #2a1840; color: #d9b4ff; } .pill.green { background: #14321c; color: #a6f4c0; }
+  .teaser { color: var(--ink); margin: 8px 0 2px; font-weight: 500; }
+  .summary { color: var(--muted); margin: 6px 0; }
+  .next { margin: 10px 0 0; font-size: 14px; }
+  .next b { color: var(--accent); }
+  .team { color: var(--faint); font-size: 12px; margin: 2px 0 0; }
+  .team .lead { color: var(--muted); font-weight: 600; }
+  .cu { font-size: 11px; color: var(--faint); }
+
+  .detail { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-top: 14px; }
+  @media (max-width: 720px) { .detail { grid-template-columns: 1fr; } }
+  .detail h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--faint); }
+  .detail ul { margin: 0; padding-left: 16px; }
+  .detail li { margin: 4px 0; color: var(--muted); }
+  .detail li .when { color: var(--faint); font-size: 12px; }
+  .msg .who { color: var(--ink); font-size: 12px; font-weight: 600; }
+  .empty-detail { color: var(--faint); font-size: 13px; }
+
+  table.roster { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  table.roster th, table.roster td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  table.roster th { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+  .dot.red { background: var(--red); } .dot.amber { background: var(--amber); }
+  .dot.green { background: var(--green); } .dot.star { background: var(--star); }
+  td.note { color: var(--muted); font-size: 13px; }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Visibility Delivery Monitor</h1>
+      <div class="sub" id="synced">Loading…</div>
+    </div>
+    <div class="controls">
+      <button id="resync">Re-sync</button>
+    </div>
+  </header>
+
+  <div id="staleBanner" class="banner stale hidden"></div>
+  <div id="warnBanner" class="banner warn hidden"></div>
+
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <h2 class="section">Moved overnight</h2>
+  <div class="moved" id="moved"></div>
+
+  <h2 class="section">Flagged accounts</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2 class="section">Full roster</h2>
+  <table class="roster">
+    <thead><tr><th>Status</th><th>Client</th><th>Note</th><th>Team</th><th>ClickUp</th></tr></thead>
+    <tbody id="rosterBody"></tbody>
+  </table>
+</div>
+
+<script>
+const CU_BASE = 'https://app.clickup.com/t/';
+const FLAG_LABEL = { red: 'Red', amber: 'Amber', green: 'Green', star: 'Star' };
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+// Turn bare URLs in already-escaped text into links.
+function linkify(escaped) {
+  return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+}
+function teamHtml(team) {
+  if (!team || !team.length) return '<span class="faint">—</span>';
+  return team.map(([name, lead]) =>
+    lead === 'lead' ? `<span class="lead">${esc(name)}</span>` : esc(name)
+  ).join(', ');
+}
+
+function renderScoreboard(s) {
+  const el = document.getElementById('scoreboard');
+  const cells = [
+    ['active', 'Active', ''], ['red', 'Red', 'red'], ['amber', 'Amber', 'amber'],
+    ['green', 'Green', 'green'], ['star', 'Star', 'star'],
+  ];
+  el.innerHTML = cells.map(([k, label, cls]) =>
+    `<div class="score ${cls}"><div class="n">${s[k] ?? 0}</div><div class="k">${label}</div></div>`
+  ).join('');
+}
+
+function renderMoved(lines) {
+  const el = document.getElementById('moved');
+  if (!lines || !lines.length) {
+    el.innerHTML = '<div class="empty">Nothing moved overnight.</div>';
+    return;
+  }
+  el.innerHTML = '<ul>' + lines.map((l) => `<li>${l}</li>`).join('') + '</ul>';
+}
+
+function detailList(items, render) {
+  if (!items || !items.length) return '<div class="empty-detail">None.</div>';
+  return '<ul>' + items.map(render).join('') + '</ul>';
+}
+
+function renderCards(clients) {
+  const el = document.getElementById('cards');
+  const slugs = Object.keys(clients);
+  if (!slugs.length) {
+    el.innerHTML = '<div class="empty-detail">No flagged accounts. Everything is steady.</div>';
+    return;
+  }
+  el.innerHTML = slugs.map((slug) => {
+    const c = clients[slug];
+    return `
+      <div class="card ${esc(c.flag)}" id="client-${esc(slug)}">
+        <h3>
+          ${esc(c.name)}
+          <span class="pill ${esc(c.flag)}">${esc(c.flagLabel || FLAG_LABEL[c.flag] || c.flag)}</span>
+          ${c.cu ? `<a class="cu" href="${CU_BASE}${esc(c.cu)}" target="_blank" rel="noopener">↗ ${esc(c.cu)}</a>` : ''}
+        </h3>
+        <div class="team">${teamHtml(c.team)}</div>
+        ${c.teaser ? `<p class="teaser">${esc(c.teaser)}</p>` : ''}
+        ${c.summary ? `<p class="summary">${esc(c.summary)}</p>` : ''}
+        ${c.next ? `<p class="next"><b>Next:</b> ${esc(c.next)}</p>` : ''}
+        <div class="detail">
+          <div>
+            <h4>Issues</h4>
+            ${detailList(c.issues, ([when, what]) => `<li><span class="when">${esc(when)}</span> — ${esc(what)}</li>`)}
+          </div>
+          <div>
+            <h4>Outstanding</h4>
+            ${detailList(c.outstanding, ([text]) => `<li>${esc(text)}</li>`)}
+          </div>
+          <div>
+            <h4>Calls</h4>
+            ${detailList(c.calls, ([when, what]) => `<li><span class="when">${esc(when)}</span> — ${linkify(esc(what))}</li>`)}
+          </div>
+          <div class="msg">
+            <h4>Slack</h4>
+            ${detailList(c.messages, ([who, text]) => `<li><span class="who">${esc(who)}</span><br>${esc(text)}</li>`)}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderRoster(roster, clients) {
+  const body = document.getElementById('rosterBody');
+  if (!roster || !roster.length) { body.innerHTML = '<tr><td colspan="5" class="note">No clients.</td></tr>'; return; }
+  body.innerHTML = roster.map((row) => {
+    const [slug, cu, flag, label, note, team, flatName, star] = row;
+    const displayName = slug ? ((clients[slug] && clients[slug].name) || titleFromSlug(slug)) : flatName;
+    const nameCell = slug
+      ? `<a href="#client-${esc(slug)}">${esc(displayName)}</a>`
+      : esc(displayName);
+    return `<tr>
+      <td><span class="dot ${esc(flag)}"></span>${esc(star || FLAG_LABEL[flag] || flag)}</td>
+      <td>${nameCell}</td>
+      <td class="note">${esc(note || label || '')}</td>
+      <td class="note">${teamHtml(team)}</td>
+      <td>${cu ? `<a href="${CU_BASE}${esc(cu)}" target="_blank" rel="noopener">↗</a>` : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+function titleFromSlug(slug) {
+  return String(slug).split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function renderBanners(data) {
+  const stale = document.getElementById('staleBanner');
+  const warn = document.getElementById('warnBanner');
+  if (data.stale) {
+    stale.textContent = '⚠️ Showing the last good snapshot — the most recent sync could not complete (AI synthesis or data source unavailable).';
+    stale.classList.remove('hidden');
+  } else { stale.classList.add('hidden'); }
+
+  if (data.unavailable && data.unavailable.length) {
+    warn.textContent = '⚠️ Some sources were unavailable this sync: ' + data.unavailable.join(', ') + '. Figures may be incomplete.';
+    warn.classList.remove('hidden');
+  } else { warn.classList.add('hidden'); }
+}
+
+function render(data) {
+  document.getElementById('synced').textContent = data.syncedAt
+    ? 'Last synced ' + new Date(data.syncedAt).toLocaleString('en-GB', { timeZone: 'Europe/Lisbon' })
+    : 'No sync yet — the morning pull has not run.';
+  renderBanners(data);
+  renderScoreboard(data.scoreboard || {});
+  renderMoved(data.movedOvernight);
+  renderCards(data.clients || {});
+  renderRoster(data.roster || [], data.clients || {});
+}
+
+async function load() {
+  try {
+    const res = await fetch('/api/data', { cache: 'no-store' });
+    render(await res.json());
+  } catch (err) {
+    document.getElementById('synced').textContent = 'Failed to load data: ' + err.message;
+  }
+}
+
+document.getElementById('resync').addEventListener('click', async () => {
+  const btn = document.getElementById('resync');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  try {
+    const res = await fetch('/api/refresh', { method: 'POST' });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error(j.error || ('HTTP ' + res.status));
+    }
+    await load();
+  } catch (err) {
+    alert('Re-sync failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Re-sync';
+  }
+});
+
+load();
+</script>
+</body>
+</html>
