@@ -91,6 +91,11 @@ DATA_DIR=                 # optional; set to the Railway volume mount (e.g. /dat
 
 ## Deploy (Railway)
 
+> **Handing this off to a developer?** See [`HANDOVER.md`](./HANDOVER.md) for a complete,
+> self-contained deployment + credentials runbook written for whoever hosts this on Brand
+> Alchemy's own Railway account.
+
+
 1. Create a new Railway service from this repo.
 2. Set the environment variables above in the service settings.
 3. **Attach a volume** and set `DATA_DIR` to its mount path (e.g. `/data`). The container
